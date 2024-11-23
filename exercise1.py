@@ -1,3 +1,4 @@
+import subprocess
 from openai import OpenAI
 
 client = OpenAI()
@@ -25,3 +26,16 @@ generated_code = completion.choices[0].message.content
 # Write the generated code to a file named 'generatedcode.py'
 with open("generatedcode.py", "w") as file:
     file.write(generated_code)
+
+# Run the generated Python file using subprocess.run
+result = subprocess.run(['python3', 'generatedcode.py'],
+                        capture_output=True, text=True)
+
+# Print the result of the program's execution
+print("Program Output:")
+print(result.stdout)
+
+# If there's any error, print it
+if result.stderr:
+    print("Program Error:")
+    print(result.stderr)
