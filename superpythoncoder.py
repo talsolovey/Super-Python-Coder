@@ -31,7 +31,8 @@ PROGRAMS_LIST = [
     ]
 
 
-def generate_code(program_description, error_message=None, optimize=False):
+def generate_code(program_description, error_message=None, optimize=False,
+                  lint_feedback=None):
     # Use OpenAI API to generate code for the chosen program
     messages = [
             {
@@ -61,6 +62,14 @@ def generate_code(program_description, error_message=None, optimize=False):
             "content": "The previously generated code had these errors:"
             f"\n\n{error_message}\n\n"
             "Please correct the code and provide the full fixed version."
+        })
+
+    if lint_feedback:
+        messages.append({
+            "role": "user",
+            "content": "The code has the following lint errors/warnings: "
+            f"\n\n{lint_feedback}\n\n"
+            "Please fix these issues and ensure the code passes a lint check."
         })
 
     if optimize:
@@ -94,6 +103,15 @@ def measure_execution_time(file_path):
     return (end_time - start_time) * 1000  # Convert to milliseconds
 
 
+# Check linting with pylint
+def check_lint(file_path):
+    result = subprocess.run(
+        ['pylint', file_path],
+        capture_output=True, text=True
+    )
+    return result.returncode, result.stdout  # Return code and lint output
+
+
 # Main function for user interaction and program generation
 def main():
     print("I'm Super Python Coder. Tell me, which program would you like me to"
@@ -110,6 +128,8 @@ def main():
     else:
         print(f"\nYou asked me to code: '{chosen_program}'")
 
+    # Phase 1: Generate and run code
+    success = False
     for attempt in range(1, 6):
         print(f"\nAttempt {attempt} to generate and run the code...\n")
         try:
@@ -133,47 +153,70 @@ def main():
             # If successful, print success message and open the file
             print("Code creation completed successfully!")
             subprocess.call(["open", "generatedcode.py"])
-
-            # Measure the execution time of the generated code
-            print("\nMeasuring execution time...")
-            initial_time = measure_execution_time("generatedcode.py")
-            print(f"Initial execution time: {initial_time:.2f} ms")
-
-            # Generate optimized code
-            print("\nRequesting optimized code...")
-            optimized_code = generate_code(chosen_program, optimize=True)
-            with open("optimized_code.py", "w") as file:
-                file.write(optimized_code)
-
-            # Measure the execution time of the optimized code
-            print("\nMeasuring optimized execution time...")
-            optimized_time = measure_execution_time("optimized_code.py")
-            print(f"Optimized execution time: {optimized_time:.2f} ms")
-
-            # Compare times
-            if optimized_time < initial_time:
-                print(
-                    "\nCode running time optimized! It now runs in"
-                    f" {optimized_time:.2f} ms, "
-                    f"while before it was {initial_time:.2f} ms."
-                )
-            else:
-                print(
-                    "\nOptimization did not improve runtime. It now runs in "
-                    f"{optimized_time:.2f} ms, "
-                    f"while before it was {initial_time:.2f} ms."
-                )
-
-            # Open the optimized file
-            subprocess.call(["open", "optimized_code.py"])
-            return
+            success = True
+            break
 
         except Exception as e:
             print(f"Error running generated code! Error: {e}. Trying again...")
             chosen_program = f"{chosen_program}\n\nError details: {e}"
 
     # If all attempts fail
-    print("Code generation FAILED")
+    if not success:
+        print("Code generation FAILED")
+        return
+
+    # Phase 2: Optimization
+    # Measure the execution time of the generated code
+    print("\nMeasuring execution time...")
+    initial_time = measure_execution_time("generatedcode.py")
+    print(f"Initial execution time: {initial_time:.2f} ms")
+
+    # Generate optimized code
+    print("\nRequesting optimized code...")
+    optimized_code = generate_code(chosen_program, optimize=True)
+    with open("optimized_code.py", "w") as file:
+        file.write(optimized_code)
+
+    # Measure the execution time of the optimized code
+    print("\nMeasuring optimized execution time...")
+    optimized_time = measure_execution_time("optimized_code.py")
+    print(f"Optimized execution time: {optimized_time:.2f} ms")
+
+    # Compare times
+    if optimized_time < initial_time:
+        print(
+            "\nCode running time optimized! It now runs in"
+            f" {optimized_time:.2f} ms, "
+            f"while before it was {initial_time:.2f} ms."
+        )
+    else:
+        print(
+            "\nOptimization did not improve runtime. It now runs in "
+            f"{optimized_time:.2f} ms, "
+            f"while before it was {initial_time:.2f} ms."
+        )
+
+    # Open the optimized file
+    subprocess.call(["open", "optimized_code.py"])
+
+    # Phase 3: Lint check
+    print("\nRunning lint check...")
+    for lint_attempt in range(1, 4):
+        return_code, lint_output = check_lint("generatedcode.py")
+        if return_code == 0:
+            print("Amazing. No lint errors/warnings.")
+            break
+        else:
+            print(f"Lint errors/warnings found (attempt {lint_attempt}):"
+                  f"\n{lint_output}")
+            if lint_attempt < 3:
+                generated_code = generate_code(chosen_program,
+                                               lint_feedback=lint_output)
+                with open("generatedcode.py", "w") as file:
+                    file.write(generated_code)
+            else:
+                print("There are still lint errors/warnings.")
+                return
 
 
 if __name__ == "__main__":

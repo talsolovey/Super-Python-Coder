@@ -1,35 +1,37 @@
-def merge_sorted_lists(list1, list2):
-    merged_list = []
-    i, j = 0, 0
+def find_median_sorted_arrays(nums1, nums2):
 
-    while i < len(list1) and j < len(list2):
-        if list1[i] < list2[j]:
-            merged_list.append(list1[i])
-            i += 1
-        else:
-            merged_list.append(list2[j])
-            j += 1
+    nums = sorted(nums1 + nums2)
+    n = len(nums)
 
-    merged_list.extend(list1[i:])
-    merged_list.extend(list2[j:])
-
-    return merged_list
+    if n % 2 == 1:
+        return float(nums[n // 2])
+    else:
+        return (nums[n // 2 - 1] + nums[n // 2]) / 2.0
 
 
-def test_merge_sorted_lists():
-    assert merge_sorted_lists([1, 3, 5], [2, 4, 6]) == [1, 2, 3, 4, 5, 6]
-    assert merge_sorted_lists([], []) == []
-    assert merge_sorted_lists([], [1, 2, 3]) == [1, 2, 3]
-    assert merge_sorted_lists([1, 2, 3], []) == [1, 2, 3]
-    assert merge_sorted_lists([1, 3, 5], [0, 2, 4]) == [0, 1, 2, 3, 4, 5]
-    assert merge_sorted_lists([2, 2, 2], [2, 2]) == [2, 2, 2, 2, 2]
-    assert merge_sorted_lists([1, 2, 3], [4, 5, 6]) == [1, 2, 3, 4, 5, 6]
-    assert merge_sorted_lists([10, 20, 30], [5, 15, 25]) == [5, 10, 15,
-                                                            20, 25, 30]
-    assert merge_sorted_lists([1], [2]) == [1, 2]
-    assert merge_sorted_lists([5], [1, 2, 3, 4]) == [1, 2, 3, 4, 5]
+def test_find_median_sorted_arrays():
+
+    assert find_median_sorted_arrays([1, 3], [2]) == 2.0
+
+    assert find_median_sorted_arrays([1, 2], [3, 4]) == 2.5
+
+    assert find_median_sorted_arrays([], [1]) == 1.0
+
+    assert find_median_sorted_arrays([2], []) == 2.0
+
+    assert find_median_sorted_arrays([], []) is None
+
+    assert find_median_sorted_arrays([1, 2], [1, 2]) == 1.5
+
+    assert find_median_sorted_arrays([0, 0], [0, 0]) == 0.0
+
+    assert find_median_sorted_arrays([1], [2]) == 1.5
+
+    assert find_median_sorted_arrays([-1, 3], [-2, 4]) == 1.0
+
+    assert find_median_sorted_arrays([1, 2, 3], [4, 5]) == 3.0
 
 
 if __name__ == "__main__":
-    test_merge_sorted_lists()
+    test_find_median_sorted_arrays() 
 
