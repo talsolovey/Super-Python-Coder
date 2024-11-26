@@ -2,6 +2,11 @@ import subprocess
 from openai import OpenAI
 import random
 import time
+from colorama import Fore, init
+from tqdm import tqdm
+
+# Initialize colorama
+init(autoreset=True)
 
 # Initialize OpenAI client
 client = OpenAI()
@@ -23,11 +28,11 @@ PROGRAMS_LIST = [
     ABC
     ACB
     CAB "''',
-    " A program that checks if a number is a palindrome",
-    " A program that finds the kth smallest element in a given binary search"
+    "A program that checks if a number is a palindrome",
+    "A program that finds the kth smallest element in a given binary search"
     "tree",
-    " A program that returns the median of two sorted arrays.",
-    " A Program that merges two sorted lists."
+    "A program that returns the median of two sorted arrays.",
+    "A Program that merges two sorted lists."
     ]
 
 
@@ -105,33 +110,41 @@ def measure_execution_time(file_path):
 
 # Check linting with pylint
 def check_lint(file_path):
-    result = subprocess.run(
-        ['pylint', file_path],
-        capture_output=True, text=True
-    )
-    return result.returncode, result.stdout  # Return code and lint output
+    try:
+        result = subprocess.run(
+            ['pylint', file_path],
+            capture_output=True, text=True
+        )
+        return result.returncode, result.stdout  # Return code and lint output
+    except FileNotFoundError:
+        print(Fore.RED + "\nError: 'pylint' is not installed or not in PATH.")
+        return -1, "pylint not found"
 
 
 # Main function for user interaction and program generation
 def main():
-    print("I'm Super Python Coder. Tell me, which program would you like me to"
-          " code for you?")
-    print("If you don't have an idea, just press enter and I will choose a"
-          " random program to code.")
-    user_input = input("Your choice: ").strip()
+    print(Fore.CYAN + "I'm Super Python Coder. Tell me, which program would"
+          " you like me to code for you?")
+    print(Fore.YELLOW + "If you don't have an idea, just press enter and I"
+          " will choose a random program to code.")
+    user_input = input(Fore.CYAN + "Your choice: ").strip()
 
     # Determine the program idea
     if user_input == "":
         chosen_program = random.choice(PROGRAMS_LIST)
-        print("\nHere's a randomly chosen program idea for you:")
-        print(chosen_program)
+        print(Fore.MAGENTA + "\nHere's a randomly chosen program"
+              " idea for you:")
+        print(Fore.GREEN + chosen_program)
     else:
-        print(f"\nYou asked me to code: '{chosen_program}'")
+        chosen_program = user_input
+        print(Fore.GREEN + f"\nYou asked me to code: '{chosen_program}'")
 
     # Phase 1: Generate and run code
     success = False
-    for attempt in range(1, 6):
-        print(f"\nAttempt {attempt} to generate and run the code...\n")
+    for attempt in tqdm(range(1, 6), desc="Code Generation Attempts",
+                        unit="try"):
+        print(Fore.BLUE + f"\nAttempt {attempt} "
+              "to generate and run the code...")
         try:
             # Generate Code
             generated_code = generate_code(chosen_program)
@@ -151,48 +164,48 @@ def main():
                 raise RuntimeError(result.stderr or result.stdout)
 
             # If successful, print success message and open the file
-            print("Code creation completed successfully!")
+            print(Fore.GREEN + "\nCode creation completed successfully!")
             subprocess.call(["open", "generatedcode.py"])
             success = True
             break
 
         except Exception as e:
-            print(f"Error running generated code! Error: {e}. Trying again...")
+            print(Fore.RED + f"\nError running generated code! Error: {e}. "
+                  "Trying again...")
             chosen_program = f"{chosen_program}\n\nError details: {e}"
 
     # If all attempts fail
     if not success:
-        print("Code generation FAILED")
+        print(Fore.RED + "\nCode generation FAILED")
         return
 
     # Phase 2: Optimization
     # Measure the execution time of the generated code
-    print("\nMeasuring execution time...")
+    print(Fore.BLUE + "\nMeasuring execution time...")
     initial_time = measure_execution_time("generatedcode.py")
-    print(f"Initial execution time: {initial_time:.2f} ms")
+    print(Fore.CYAN + f"Initial execution time: {initial_time:.2f} ms")
 
     # Generate optimized code
-    print("\nRequesting optimized code...")
+    print(Fore.BLUE + "\nRequesting optimized code...")
     optimized_code = generate_code(chosen_program, optimize=True)
     with open("optimized_code.py", "w") as file:
         file.write(optimized_code)
 
     # Measure the execution time of the optimized code
-    print("\nMeasuring optimized execution time...")
     optimized_time = measure_execution_time("optimized_code.py")
-    print(f"Optimized execution time: {optimized_time:.2f} ms")
+    print(Fore.CYAN + f"Optimized execution time: {optimized_time:.2f} ms")
 
     # Compare times
     if optimized_time < initial_time:
         print(
-            "\nCode running time optimized! It now runs in"
+            Fore.GREEN + "\nCode running time optimized! It now runs in"
             f" {optimized_time:.2f} ms, "
             f"while before it was {initial_time:.2f} ms."
         )
     else:
         print(
-            "\nOptimization did not improve runtime. It now runs in "
-            f"{optimized_time:.2f} ms, "
+            Fore.YELLOW + "\nOptimization did not improve runtime. It now runs"
+            f" in {optimized_time:.2f} ms, "
             f"while before it was {initial_time:.2f} ms."
         )
 
@@ -200,14 +213,16 @@ def main():
     subprocess.call(["open", "optimized_code.py"])
 
     # Phase 3: Lint check
-    print("\nRunning lint check...")
-    for lint_attempt in range(1, 4):
+    print(Fore.BLUE + "\nRunning lint check...")
+    for lint_attempt in tqdm(range(1, 4), desc="Lint Check Attempts",
+                             unit="fix"):
         return_code, lint_output = check_lint("generatedcode.py")
         if return_code == 0:
-            print("Amazing. No lint errors/warnings.")
+            print(Fore.GREEN + "\nAmazing. No lint errors/warnings.")
             break
         else:
-            print(f"Lint errors/warnings found (attempt {lint_attempt}):"
+            print(Fore.YELLOW + "\nLint errors/warnings found "
+                  f"(attempt {lint_attempt}):"
                   f"\n{lint_output}")
             if lint_attempt < 3:
                 generated_code = generate_code(chosen_program,
@@ -215,7 +230,7 @@ def main():
                 with open("generatedcode.py", "w") as file:
                     file.write(generated_code)
             else:
-                print("There are still lint errors/warnings.")
+                print(Fore.RED + "There are still lint errors/warnings.")
                 return
 
 
