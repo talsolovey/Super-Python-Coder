@@ -1,6 +1,7 @@
 import subprocess
 from openai import OpenAI
 import random
+import time
 
 # Initialize OpenAI client
 client = OpenAI()
@@ -30,7 +31,7 @@ PROGRAMS_LIST = [
     ]
 
 
-def generate_code(program_description, error_message=None):
+def generate_code(program_description, error_message=None, optimize=False):
     # Use OpenAI API to generate code for the chosen program
     messages = [
             {
@@ -62,6 +63,16 @@ def generate_code(program_description, error_message=None):
             "Please correct the code and provide the full fixed version."
         })
 
+    if optimize:
+        messages.append({
+            "role": "user",
+            "content": (
+                "Now optimize the code to run faster."
+                "Keep the same functionality and unit tests but focus on"
+                " improving performance. Ensure the tests still pass."
+            )
+        })
+
     completion = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=messages
@@ -69,6 +80,18 @@ def generate_code(program_description, error_message=None):
 
     # return the generated Python code from the OpenAI response
     return completion.choices[0].message.content
+
+
+# Measure execution time of the generated code
+def measure_execution_time(file_path):
+    start_time = time.time()
+    try:
+        subprocess.run(['python3', file_path], capture_output=True, text=True,
+                       timeout=10)
+    except subprocess.TimeoutExpired:
+        pass
+    end_time = time.time()
+    return (end_time - start_time) * 1000  # Convert to milliseconds
 
 
 # Main function for user interaction and program generation
@@ -89,7 +112,6 @@ def main():
 
     for attempt in range(1, 6):
         print(f"\nAttempt {attempt} to generate and run the code...\n")
-
         try:
             # Generate Code
             generated_code = generate_code(chosen_program)
@@ -111,6 +133,39 @@ def main():
             # If successful, print success message and open the file
             print("Code creation completed successfully!")
             subprocess.call(["open", "generatedcode.py"])
+
+            # Measure the execution time of the generated code
+            print("\nMeasuring execution time...")
+            initial_time = measure_execution_time("generatedcode.py")
+            print(f"Initial execution time: {initial_time:.2f} ms")
+
+            # Generate optimized code
+            print("\nRequesting optimized code...")
+            optimized_code = generate_code(chosen_program, optimize=True)
+            with open("optimized_code.py", "w") as file:
+                file.write(optimized_code)
+
+            # Measure the execution time of the optimized code
+            print("\nMeasuring optimized execution time...")
+            optimized_time = measure_execution_time("optimized_code.py")
+            print(f"Optimized execution time: {optimized_time:.2f} ms")
+
+            # Compare times
+            if optimized_time < initial_time:
+                print(
+                    "\nCode running time optimized! It now runs in"
+                    f" {optimized_time:.2f} ms, "
+                    f"while before it was {initial_time:.2f} ms."
+                )
+            else:
+                print(
+                    "\nOptimization did not improve runtime. It now runs in "
+                    f"{optimized_time:.2f} ms, "
+                    f"while before it was {initial_time:.2f} ms."
+                )
+
+            # Open the optimized file
+            subprocess.call(["open", "optimized_code.py"])
             return
 
         except Exception as e:
