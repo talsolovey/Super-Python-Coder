@@ -10,12 +10,7 @@ completion = client.chat.completions.create(
             "content": (
                 "Create a Python program that checks if a number is prime. "
                 "Do not write any explanations, and do not include code block"
-                "markers like ```python. Just show me the raw code itself. "
-                "Ensure that the code follows PEP 8 style guidelines, "
-                "especially the one that requires two blank lines after"
-                "class or function definitions, make sure that blank"
-                "lines are not empty with whitespace, especially the last line"
-                "and the file ends with a new line."
+                "markers. Just show me the raw code itself."
                 "Also please include running unit tests with asserts that"
                 "check the logic of the program. Make sure to also check"
                 "interesting edge cases. There should be at least 10 different"
