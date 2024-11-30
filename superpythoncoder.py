@@ -36,58 +36,90 @@ PROGRAMS_LIST = [
     ]
 
 
-def generate_code(program_description, error_message=None, optimize=False,
-                  lint_feedback=None):
-    # Use OpenAI API to generate code for the chosen program
-    messages = [
-            {
-                "role": "user",
-                "content": (
-                    "Create a Python program for the following task:"
-                    f"\n\n{program_description}\n\n"
-                    " Do not write any explanations, and do not include code"
-                    " block markers. Just show me the raw code"
-                    " itself. Please include running unit tests with"
-                    " asserts that check the logic of the program."
-                    " Make sure to also check interesting edge cases."
-                    " There should be at least 10 different unit tests"
-                )
-            }
-        ]
+# Use OpenAI API to generate code for the chosen program
+def generate_code(program_description, message_history=None,
+                  error_message=None, optimize=False, lint_feedback=None):
+    if message_history is None:
+        message_history = []
 
+    # starting prompt message
+    if not message_history:
+        initial_message = {
+            "role": "user",
+            "content": (
+                "Create a Python program for the following task:"
+                f"\n\n{program_description}\n\n"
+                " Do not write any explanations, and comments and do not "
+                "include code block markers. Just show me the raw code"
+                " itself. Please include running unit tests with"
+                " asserts that check the logic of the program."
+                " Make sure to also check interesting edge cases."
+                " There should be at least 10 different unit tests"
+            )
+        }
+        message_history.append(initial_message)
+
+    # Append error feedback if provided
     if error_message:
-        messages.append({
+        message_history.append({
             "role": "user",
-            "content": "The previously generated code had these errors:"
-            f"\n\n{error_message}\n\n"
-            "Please correct the code and provide the full fixed version."
+            "content": (
+                "The previously generated code had these errors:"
+                f"\n\n{error_message}\n\n"
+                "Please correct the code and provide the full fixed version."
+                "Do not write any explanations, and comments and do not "
+                "include code block markers. Just show me the raw code itself"
+            )
         })
 
+    # Append lint feedback if provided
     if lint_feedback:
-        messages.append({
+        message_history.append({
             "role": "user",
-            "content": "The code has the following lint errors/warnings: "
-            f"\n\n{lint_feedback}\n\n"
-            "Please fix these issues and ensure the code passes a lint check."
+            "content": (
+                "The optimized code has the following lint errors/warnings: "
+                f"\n\n{lint_feedback}\n\n"
+                "Please fix these issues and ensure the code passes a lint"
+                "check with pylint. Make sure that the code's logic remains "
+                "unchanged and all existing tests still pass. "
+                "Do not write any explanations, and comments and do not"
+                " include code block markers. Just show me the raw code itself"
+            )
         })
 
+    # Add optimization request
     if optimize:
-        messages.append({
+        message_history.append({
             "role": "user",
             "content": (
                 "Now optimize the code to run faster."
                 "Keep the same functionality and unit tests but focus on"
                 " improving performance. Ensure the tests still pass."
+                "Do not write any explanations, and comments and do not "
+                "include code block markers. Just show me the raw code itself"
             )
         })
 
-    completion = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=messages
-    )
+    # Call to OpenAi API
+    try:
+        completion = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=message_history
+            )
+    except Exception as e:
+        print(Fore.RED + f"OpenAI API Error: {e}")
+        return None, message_history
+
+    # Append assistant's reply to the history
+    assistant_message = completion.choices[0].message.content.strip()
+    message_history.append({
+        "role": "assistant",
+        "content": assistant_message
+    })
 
     # return the generated Python code from the OpenAI response
-    return completion.choices[0].message.content
+    # and the updated messages
+    return assistant_message, message_history
 
 
 # Measure execution time of the generated code
@@ -97,7 +129,8 @@ def measure_execution_time(file_path):
         subprocess.run(['python3', file_path], capture_output=True, text=True,
                        timeout=10)
     except subprocess.TimeoutExpired:
-        pass
+        print(Fore.RED + "Error: The program took too long to execute and was"
+              "terminated.")
     end_time = time.time()
     return (end_time - start_time) * 1000  # Convert to milliseconds
 
@@ -133,6 +166,10 @@ def main():
         chosen_program = user_input
         print(Fore.GREEN + f"\nYou asked me to code: '{chosen_program}'")
 
+    # Initialize message history and error message
+    message_history = []
+    error_message = None
+
     # Phase 1: Generate and run code
     success = False
     for attempt in tqdm(range(1, 6), desc="Code Generation Attempts",
@@ -141,7 +178,10 @@ def main():
               "to generate and run the code...")
         try:
             # Generate Code
-            generated_code = generate_code(chosen_program)
+            generated_code, message_history = generate_code(
+                chosen_program, message_history, error_message)
+            if not generated_code:
+                raise RuntimeError("Failed to generate code from OpenAI API.")
 
             # Write the generated code to a file named 'generatedcode.py'
             with open("generatedcode.py", "w") as file:
@@ -159,14 +199,16 @@ def main():
 
             # If successful, print success message and open the file
             print(Fore.GREEN + "\nCode creation completed successfully!")
-            subprocess.call(["open", "generatedcode.py"])
+            subprocess.run(["open", "generatedcode.py"])
             success = True
             break
 
         except Exception as e:
             print(Fore.RED + f"\nError running generated code! Error: {e}. "
                   "Trying again...")
-            chosen_program = f"{chosen_program}\n\nError details: {e}"
+            # Append error details to message_history for context in the next
+            # attempt
+            error_message = {e}
 
     # If all attempts fail
     if not success:
@@ -181,36 +223,30 @@ def main():
 
     # Generate optimized code
     print(Fore.BLUE + "\nRequesting optimized code...")
-    optimized_code = generate_code(chosen_program, optimize=True)
-    with open("optimized_code.py", "w") as file:
-        file.write(optimized_code)
+    optimized_time = initial_time
+    while optimized_time >= initial_time:
+        optimized_code, message_history = generate_code(
+            chosen_program, message_history, optimize=True)
+        with open("optimized_code.py", "w") as file:
+            file.write(optimized_code)
 
-    # Measure the execution time of the optimized code
-    optimized_time = measure_execution_time("optimized_code.py")
-    print(Fore.CYAN + f"Optimized execution time: {optimized_time:.2f} ms")
+        # Measure the execution time of the optimized code
+        optimized_time = measure_execution_time("optimized_code.py")
 
-    # Compare times
-    if optimized_time < initial_time:
-        print(
-            Fore.GREEN + "\nCode running time optimized! It now runs in"
-            f" {optimized_time:.2f} ms, "
-            f"while before it was {initial_time:.2f} ms."
-        )
-    else:
-        print(
-            Fore.YELLOW + "\nOptimization did not improve runtime. It now runs"
-            f" in {optimized_time:.2f} ms, "
-            f"while before it was {initial_time:.2f} ms."
-        )
+    # optimized time < initial time
+    print(Fore.GREEN + "\nCode running time optimized! It now runs in"
+          f" {optimized_time:.2f} ms, "
+          f"while before it was {initial_time:.2f} ms."
+          )
 
     # Open the optimized file
-    subprocess.call(["open", "optimized_code.py"])
+    subprocess.run(["open", "optimized_code.py"])
 
     # Phase 3: Lint check
     print(Fore.BLUE + "\nRunning lint check...")
     for lint_attempt in tqdm(range(1, 4), desc="Lint Check Attempts",
                              unit="fix"):
-        return_code, lint_output = check_lint("generatedcode.py")
+        return_code, lint_output = check_lint("optimized_code.py")
         if return_code == 0:
             print(Fore.GREEN + "\nAmazing. No lint errors/warnings.")
             break
@@ -219,9 +255,10 @@ def main():
                   f"(attempt {lint_attempt}):"
                   f"\n{lint_output}")
             if lint_attempt < 3:
-                generated_code = generate_code(chosen_program,
-                                               lint_feedback=lint_output)
-                with open("generatedcode.py", "w") as file:
+                generated_code, message_history = generate_code(
+                    chosen_program, message_history, error_message=None,
+                    optimize=False, lint_feedback=lint_output)
+                with open("optimized_code.py", "w") as file:
                     file.write(generated_code)
             else:
                 print(Fore.RED + "There are still lint errors/warnings.")
