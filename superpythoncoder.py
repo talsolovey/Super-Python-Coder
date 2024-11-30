@@ -179,7 +179,7 @@ def main():
         try:
             # Generate Code
             generated_code, message_history = generate_code(
-                chosen_program, message_history, error_message)
+                chosen_program, message_history)
             if not generated_code:
                 raise RuntimeError("Failed to generate code from OpenAI API.")
 
@@ -208,7 +208,17 @@ def main():
                   "Trying again...")
             # Append error details to message_history for context in the next
             # attempt
-            error_message = {e}
+            message_history.append({
+                "role": "user",
+                "content": (
+                    "The previously generated code had these errors:"
+                    f"\n\n{error_message}\n\n"
+                    "Please correct the code and provide the full fixed"
+                    "version. Do not write any explanations, and comments and "
+                    "do not include code block markers. "
+                    "Just show me the raw code itself"
+                )
+            })
 
     # If all attempts fail
     if not success:
@@ -224,29 +234,46 @@ def main():
     # Generate optimized code
     print(Fore.BLUE + "\nRequesting optimized code...")
     optimized_time = initial_time
-    while optimized_time >= initial_time:
+    optimized = False
+
+    for attempt in range(1, 4):
+        print(Fore.YELLOW + f"\nOptimization attempt {attempt}...")
         optimized_code, message_history = generate_code(
             chosen_program, message_history, optimize=True)
+
+        # Write the optimized code to a file
         with open("optimized_code.py", "w") as file:
             file.write(optimized_code)
 
         # Measure the execution time of the optimized code
         optimized_time = measure_execution_time("optimized_code.py")
 
-    # optimized time < initial time
-    print(Fore.GREEN + "\nCode running time optimized! It now runs in"
-          f" {optimized_time:.2f} ms, "
-          f"while before it was {initial_time:.2f} ms."
-          )
+        if optimized_time < initial_time:
+            print(Fore.GREEN + "\nCode running time optimized! It now runs in "
+                  "{optimized_time:.2f} ms, while before it was "
+                  "{initial_time:.2f} ms.")
+            optimized = True
+            break
+        else:
+            print(Fore.RED + f"\nOptimization attempt {attempt} failed to "
+                  "improve execution time.")
+    if not optimized:
+        print(Fore.RED + "\nFailed to optimize code after 3 attempts. "
+              f"The execution time remains {optimized_time:.2f} ms.")
+    else:
+        # Open the optimized file
+        subprocess.run(["open", "optimized_code.py"])
 
-    # Open the optimized file
-    subprocess.run(["open", "optimized_code.py"])
+    # Phase 3: Lint check on optimized code
+    if optimized:
+        filePath = "optimized_code.py"
+    else:
+        filePath = "generatedcode.py"
 
-    # Phase 3: Lint check
     print(Fore.BLUE + "\nRunning lint check...")
     for lint_attempt in tqdm(range(1, 4), desc="Lint Check Attempts",
                              unit="fix"):
-        return_code, lint_output = check_lint("optimized_code.py")
+        return_code, lint_output = check_lint(filePath)
         if return_code == 0:
             print(Fore.GREEN + "\nAmazing. No lint errors/warnings.")
             break
@@ -258,7 +285,7 @@ def main():
                 generated_code, message_history = generate_code(
                     chosen_program, message_history, error_message=None,
                     optimize=False, lint_feedback=lint_output)
-                with open("optimized_code.py", "w") as file:
+                with open(filePath, "w") as file:
                     file.write(generated_code)
             else:
                 print(Fore.RED + "There are still lint errors/warnings.")

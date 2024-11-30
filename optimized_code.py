@@ -1,33 +1,78 @@
-def merge_sorted_lists(list1, list2):
-    """Merges two sorted lists into one sorted list."""
-    len1, len2 = len(list1), len(list2)
-    merged_list = []
-    i, j = 0, 0
+class TreeNode:
+    def __init__(self, value):
+        self.value = value
+        self.left = None
+        self.right = None
+        self.left_size = 0
 
-    while i < len1 and j < len2:
-        if list1[i] <= list2[j]:
-            merged_list.append(list1[i])
-            i += 1
+class BST:
+    def __init__(self):
+        self.root = None
+
+    def insert(self, value):
+        if not self.root:
+            self.root = TreeNode(value)
         else:
-            merged_list.append(list2[j])
-            j += 1
+            self.root = self._insert(self.root, value)
 
-    merged_list.extend(list1[i:])
-    merged_list.extend(list2[j:])
+    def _insert(self, node, value):
+        if value < node.value:
+            node.left_size += 1
+            if node.left:
+                node.left = self._insert(node.left, value)
+            else:
+                node.left = TreeNode(value)
+        else:
+            if node.right:
+                node.right = self._insert(node.right, value)
+            else:
+                node.right = TreeNode(value)
+        return node
 
-    return merged_list
+    def kth_smallest(self, k):
+        return self._kth_smallest(self.root, k)
 
-def test_merge_sorted_lists():
-    """Tests the merge_sorted_lists function."""
-    assert merge_sorted_lists([1, 3, 5], [2, 4, 6]) == [1, 2, 3, 4, 5, 6]
-    assert not merge_sorted_lists([], [1, 2, 3])
-    assert merge_sorted_lists([1, 2, 3], []) == [1, 2, 3]
-    assert not merge_sorted_lists([], [])
-    assert merge_sorted_lists([1, 2, 3], [0]) == [0, 1, 2, 3]
-    assert merge_sorted_lists([10, 20, 30], [5, 15, 25]) == [5, 10, 15, 20, 25, 30]
-    assert merge_sorted_lists([1, 1, 1], [1, 1]) == [1, 1, 1, 1, 1]
-    assert merge_sorted_lists([-1, 0, 1], [-2, 2]) == [-2, -1, 0, 1, 2]
-    assert merge_sorted_lists([5], [1, 2, 3, 4]) == [1, 2, 3, 4, 5]
-    assert merge_sorted_lists([100], [50, 75, 200]) == [50, 75, 100, 200]
+    def _kth_smallest(self, node, k):
+        if not node:
+            return None
+        left_size = node.left_size
+        if k <= left_size:
+            return self._kth_smallest(node.left, k)
+        elif k == left_size + 1:
+            return node.value
+        else:
+            return self._kth_smallest(node.right, k - left_size - 1)
 
-test_merge_sorted_lists()
+def test_kth_smallest():
+    bst = BST()
+    for v in [5, 3, 7, 2, 4, 6, 8]:
+        bst.insert(v)
+
+    assert bst.kth_smallest(1) == 2
+    assert bst.kth_smallest(2) == 3
+    assert bst.kth_smallest(3) == 4
+    assert bst.kth_smallest(4) == 5
+    assert bst.kth_smallest(5) == 6
+    assert bst.kth_smallest(6) == 7
+    assert bst.kth_smallest(7) == 8
+    assert bst.kth_smallest(8) is None
+
+    bst_empty = BST()
+    assert bst_empty.kth_smallest(1) is None
+
+    bst_single = BST()
+    bst_single.insert(10)
+    assert bst_single.kth_smallest(1) == 10
+    assert bst_single.kth_smallest(2) is None
+
+    bst_duplicates = BST()
+    for v in [5, 3, 5, 7, 4, 5, 5]:
+        bst_duplicates.insert(v)
+    assert bst_duplicates.kth_smallest(1) == 3
+    assert bst_duplicates.kth_smallest(2) == 4
+    assert bst_duplicates.kth_smallest(3) == 5
+    assert bst_duplicates.kth_smallest(5) == 5
+
+    print("All tests passed.")
+
+test_kth_smallest()
