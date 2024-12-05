@@ -1,78 +1,62 @@
+"""Module to find the kth smallest element in a binary search tree."""
+
 class TreeNode:
-    def __init__(self, value):
-        self.value = value
+    """Binary Search Tree node."""
+    def __init__(self, key):
         self.left = None
         self.right = None
-        self.left_size = 0
+        self.val = key
 
-class BST:
-    def __init__(self):
-        self.root = None
+def kth_smallest(root, k):
+    """Find the kth smallest element in the binary search tree."""
+    stack = []
+    current = root
 
-    def insert(self, value):
-        if not self.root:
-            self.root = TreeNode(value)
-        else:
-            self.root = self._insert(self.root, value)
+    while True:
+        while current is not None:
+            stack.append(current)
+            current = current.left
 
-    def _insert(self, node, value):
-        if value < node.value:
-            node.left_size += 1
-            if node.left:
-                node.left = self._insert(node.left, value)
-            else:
-                node.left = TreeNode(value)
-        else:
-            if node.right:
-                node.right = self._insert(node.right, value)
-            else:
-                node.right = TreeNode(value)
-        return node
-
-    def kth_smallest(self, k):
-        return self._kth_smallest(self.root, k)
-
-    def _kth_smallest(self, node, k):
-        if not node:
+        if not stack:
             return None
-        left_size = node.left_size
-        if k <= left_size:
-            return self._kth_smallest(node.left, k)
-        elif k == left_size + 1:
-            return node.value
-        else:
-            return self._kth_smallest(node.right, k - left_size - 1)
+
+        current = stack.pop()
+        k -= 1
+
+        if k == 0:
+            return current.val
+
+        current = current.right
 
 def test_kth_smallest():
-    bst = BST()
-    for v in [5, 3, 7, 2, 4, 6, 8]:
-        bst.insert(v)
+    root = TreeNode(5)
+    root.left = TreeNode(3)
+    root.right = TreeNode(7)
+    root.left.left = TreeNode(2)
+    root.left.right = TreeNode(4)
+    root.right.left = TreeNode(6)
+    root.right.right = TreeNode(8)
 
-    assert bst.kth_smallest(1) == 2
-    assert bst.kth_smallest(2) == 3
-    assert bst.kth_smallest(3) == 4
-    assert bst.kth_smallest(4) == 5
-    assert bst.kth_smallest(5) == 6
-    assert bst.kth_smallest(6) == 7
-    assert bst.kth_smallest(7) == 8
-    assert bst.kth_smallest(8) is None
-
-    bst_empty = BST()
-    assert bst_empty.kth_smallest(1) is None
-
-    bst_single = BST()
-    bst_single.insert(10)
-    assert bst_single.kth_smallest(1) == 10
-    assert bst_single.kth_smallest(2) is None
-
-    bst_duplicates = BST()
-    for v in [5, 3, 5, 7, 4, 5, 5]:
-        bst_duplicates.insert(v)
-    assert bst_duplicates.kth_smallest(1) == 3
-    assert bst_duplicates.kth_smallest(2) == 4
-    assert bst_duplicates.kth_smallest(3) == 5
-    assert bst_duplicates.kth_smallest(5) == 5
-
-    print("All tests passed.")
+    assert kth_smallest(root, 1) == 2
+    assert kth_smallest(root, 2) == 3
+    assert kth_smallest(root, 3) == 4
+    assert kth_smallest(root, 4) == 5
+    assert kth_smallest(root, 5) == 6
+    assert kth_smallest(root, 6) == 7
+    assert kth_smallest(root, 7) == 8
+    
+    assert kth_smallest(root, 10) is None
+    assert kth_smallest(None, 1) is None
+    assert kth_smallest(root, 0) is None
+    
+    single_node = TreeNode(1)
+    assert kth_smallest(single_node, 1) == 1
+    assert kth_smallest(single_node, 2) is None
+    
+    two_node_root = TreeNode(2)
+    two_node_root.left = TreeNode(1)
+    assert kth_smallest(two_node_root, 1) == 1
+    assert kth_smallest(two_node_root, 2) == 2
+    assert kth_smallest(two_node_root, 3) is None
 
 test_kth_smallest()

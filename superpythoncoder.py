@@ -179,7 +179,7 @@ def main():
         try:
             # Generate Code
             generated_code, message_history = generate_code(
-                chosen_program, message_history)
+                chosen_program, message_history, error_message)
             if not generated_code:
                 raise RuntimeError("Failed to generate code from OpenAI API.")
 
@@ -190,7 +190,7 @@ def main():
             # Run the generated code
             result = subprocess.run(
                 ['python3', 'generatedcode.py'],
-                capture_output=True, text=True, timeout=10  # 10-second timeout
+                capture_output=True, text=True, timeout=30  # 30-second timeout
             )
 
             # Check if the code ran successfully
@@ -204,21 +204,12 @@ def main():
             break
 
         except Exception as e:
-            print(Fore.RED + f"\nError running generated code! Error: {e}. "
-                  "Trying again...")
-            # Append error details to message_history for context in the next
-            # attempt
-            message_history.append({
-                "role": "user",
-                "content": (
-                    "The previously generated code had these errors:"
-                    f"\n\n{error_message}\n\n"
-                    "Please correct the code and provide the full fixed"
-                    "version. Do not write any explanations, and comments and "
-                    "do not include code block markers. "
-                    "Just show me the raw code itself"
+            error_message = str(e)
+            print(
+                Fore.RED +
+                f"\nError running generated code! Error: {error_message}. "
+                "Trying again..."
                 )
-            })
 
     # If all attempts fail
     if not success:
